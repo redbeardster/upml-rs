@@ -1,0 +1,32 @@
+@startuml ComplexHSM
+[*] --> Idle
+
+state Idle {
+    [*] --> Ready
+    Ready --> Working : Start
+    Working --> Ready : Stop
+}
+
+state Processing {
+    [*] --> DataProcessing
+    
+    state DataProcessing {
+        [*] --> Loading
+        Loading --> Processing : DataReady
+        Processing --> Saving : ProcessComplete
+        Saving --> [*] : SaveComplete
+        --
+        [*] --> StatusIdle
+        StatusIdle --> StatusActive : StatusUpdate
+        StatusActive --> StatusIdle : StatusClear
+    }
+    
+    DataProcessing --> ValidationPhase : Validate
+    ValidationPhase --> [*] : ValidationComplete
+}
+
+Idle --> Processing : Process
+Processing --> Idle : Complete
+Processing --> [*] : Error
+
+@enduml

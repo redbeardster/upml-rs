@@ -1,0 +1,15 @@
+@startuml ConcurrentRegions
+[*] --> Active
+
+state Active {
+    [*] --> StateA1
+    StateA1 --> StateA2 : EventA
+    StateA2 --> [*]
+    --
+    [*] --> StateB1  
+    StateB1 --> StateB2 : EventB
+    StateB2 --> [*]
+}
+
+Active --> [*]
+@enduml

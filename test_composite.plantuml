@@ -1,0 +1,11 @@
+@startuml CompositeState
+[*] --> Active
+
+state Active {
+    [*] --> StateA1
+    StateA1 --> StateA2 : EventA
+    StateA2 --> [*]
+}
+
+Active --> [*]
+@enduml

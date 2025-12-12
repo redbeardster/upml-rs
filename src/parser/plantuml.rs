@@ -115,6 +115,24 @@ pub fn comment(input: &str) -> IResult<&str, String> {
     ))(input)
 }
 
+/// Parse regions separated by -- or ||
+pub fn parse_regions(input: &str) -> IResult<&str, Vec<PlantUMLElement>> {
+    let (input, first_region) = many0(preceded(multispace0, plantuml_element))(input)?;
+    let (input, other_regions) = many0(preceded(
+        tuple((multispace0, alt((tag("--"), tag("||"))), multispace0)),
+        many0(preceded(multispace0, plantuml_element))
+    ))(input)?;
+    
+    // Flatten all regions into a single list for now
+    // In a full implementation, we'd create separate region objects
+    let mut all_elements = first_region;
+    for region in other_regions {
+        all_elements.extend(region);
+    }
+    
+    Ok((input, all_elements))
+}
+
 /// Parse state definition
 pub fn state_definition(input: &str) -> IResult<&str, StateDefinition> {
     let (input, _) = tag("state")(input)?;
@@ -126,10 +144,10 @@ pub fn state_definition(input: &str) -> IResult<&str, StateDefinition> {
     // Check if it's a composite state with substates
     let (input, substates) = if let Ok((input, _)) = char::<&str, nom::error::Error<&str>>('{')(input) {
         let (input, _) = multispace0(input)?;
-        let (input, elements) = many0(preceded(multispace0, plantuml_element))(input)?;
+        let (input, regions) = parse_regions(input)?;
         let (input, _) = multispace0(input)?;
         let (input, _) = char('}')(input)?;
-        (input, elements)
+        (input, regions)
     } else {
         (input, Vec::new())
     };
@@ -387,13 +405,57 @@ fn build_state_machine_from_elements(
     // Optional debug output (only in debug builds)
     #[cfg(debug_assertions)]
     if std::env::var("UPML_DEBUG").is_ok() {
-        eprintln!("DEBUG: Found {} states, {} transitions, {} activities", 
+        eprintln!("DEBUG: Initial - Found {} states, {} transitions, {} activities", 
                   parsed.states.len(), parsed.transitions.len(), parsed.activities.len());
         for trans in &parsed.transitions {
-            eprintln!("DEBUG: Transition: {} -> {}", trans.from_state, trans.to_state);
+            eprintln!("DEBUG: Initial Transition: {} -> {}", trans.from_state, trans.to_state);
         }
-        for activity in &parsed.activities {
-            eprintln!("DEBUG: Activity: {}: {}: {:?}", activity.state, activity.activity_type, activity.args);
+    }
+    
+    // Process substates recursively
+    fn collect_elements_recursively(
+        elements: &[PlantUMLElement],
+        parsed: &mut ParsedStateMachine,
+    ) {
+        for element in elements {
+            match element {
+                PlantUMLElement::StateDefinition(state_def) => {
+                    parsed.states.push(state_def.clone());
+                    // Recursively process substates
+                    collect_elements_recursively(&state_def.substates, parsed);
+                }
+                PlantUMLElement::Transition(trans_def) => {
+                    parsed.transitions.push(trans_def.clone());
+                }
+                PlantUMLElement::Activity(activity_def) => {
+                    parsed.activities.push(activity_def.clone());
+                }
+                PlantUMLElement::Config(config_def) => {
+                    parsed.configs.push(config_def.clone());
+                }
+                _ => {
+                    // Ignore other elements
+                }
+            }
+        }
+    }
+    
+    // Collect elements from substates recursively
+    let initial_states = parsed.states.clone();
+    for state_def in &initial_states {
+        #[cfg(debug_assertions)]
+        if std::env::var("UPML_DEBUG").is_ok() {
+            eprintln!("DEBUG: Processing substates of {}: {} elements", state_def.id, state_def.substates.len());
+        }
+        collect_elements_recursively(&state_def.substates, &mut parsed);
+    }
+    
+    #[cfg(debug_assertions)]
+    if std::env::var("UPML_DEBUG").is_ok() {
+        eprintln!("DEBUG: After recursion - Found {} states, {} transitions, {} activities", 
+                  parsed.states.len(), parsed.transitions.len(), parsed.activities.len());
+        for trans in &parsed.transitions {
+            eprintln!("DEBUG: Final Transition: {} -> {}", trans.from_state, trans.to_state);
         }
     }
     
