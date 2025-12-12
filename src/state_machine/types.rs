@@ -395,6 +395,57 @@ impl StateMachine {
         None
     }
 
+    /// Get all final states
+    pub fn final_states(&self) -> Names {
+        let mut final_states = Names::new();
+        
+        for region in self.regions.values() {
+            for state in region.borrow().substates.values() {
+                let state_borrow = state.borrow();
+                if state_borrow.is_final {
+                    final_states.insert(state_borrow.id.clone());
+                }
+                
+                // Check subregions recursively
+                for sub_region in state_borrow.regions.values() {
+                    for sub_state in sub_region.borrow().substates.values() {
+                        if sub_state.borrow().is_final {
+                            final_states.insert(sub_state.borrow().id.clone());
+                        }
+                    }
+                }
+            }
+        }
+        
+        final_states
+    }
+
+    /// Get all transitions across all regions and states
+    pub fn transitions(&self) -> Vec<Transition> {
+        let mut transitions = Vec::new();
+        
+        for region in self.regions.values() {
+            for state in region.borrow().substates.values() {
+                let state_borrow = state.borrow();
+                for transition in state_borrow.transitions.values() {
+                    transitions.push(transition.clone());
+                }
+                
+                // Get transitions from subregions recursively
+                for sub_region in state_borrow.regions.values() {
+                    for sub_state in sub_region.borrow().substates.values() {
+                        let sub_state_borrow = sub_state.borrow();
+                        for transition in sub_state_borrow.transitions.values() {
+                            transitions.push(transition.clone());
+                        }
+                    }
+                }
+            }
+        }
+        
+        transitions
+    }
+
     /// Calculate the maximum depth of the state machine hierarchy
     pub fn depth(&self) -> usize {
         let mut max_depth = 0;

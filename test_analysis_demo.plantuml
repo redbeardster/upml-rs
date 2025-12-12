@@ -1,0 +1,31 @@
+@startuml
+[*] --> Initializing
+
+state "System" {
+    Initializing --> Ready : InitComplete
+    Ready --> Processing : StartProcess
+    
+    state "Processing" {
+        [*] --> DataValidation
+        DataValidation --> DataProcessing : ValidationPassed
+        DataValidation --> ValidationError : ValidationFailed
+        DataProcessing --> DataSaving : ProcessingComplete
+        DataSaving --> [*] : SaveComplete
+        ValidationError --> DataValidation : RetryValidation
+    }
+    
+    Processing --> Ready : ProcessComplete
+    Processing --> ErrorState : ProcessError
+    
+    ErrorState --> Ready : ErrorRecovered
+    ErrorState --> [*] : Shutdown
+    
+    Ready --> [*] : SystemShutdown
+}
+
+OrphanedState --> AnotherOrphan : SomeEvent
+
+Ready --> Processing : AmbiguousEvent
+Ready --> ErrorState : AmbiguousEvent
+
+@enduml
