@@ -109,6 +109,11 @@ fn generate_type_invariants<W: Write>(writer: &mut W, state_machine: &StateMachi
         }
         write!(writer, "{}", state)?;
     }
+    // Add special FINAL state for transitions to [*]
+    if !state_list.is_empty() {
+        write!(writer, ", ")?;
+    }
+    write!(writer, "\"FINAL\"")?;
     writeln!(writer, "}}")?;
     
     let events = state_machine.events();
@@ -171,8 +176,9 @@ fn generate_region_transition_actions<W: Write>(
         for transition in state_borrow.transitions.values() {
             writeln!(writer, "\\* Transition from {} to {} on {}", 
                      transition.from_state, transition.to_state, transition.event)?;
-            writeln!(writer, "Transition_{}_{} ==", 
-                     transition.from_state, transition.to_state)?;
+            let from_name = if transition.from_state == "[*]" { "Initial" } else { &transition.from_state };
+            let to_name = if transition.to_state == "[*]" { "Final" } else { &transition.to_state };
+            writeln!(writer, "Transition_{}_{} ==", from_name, to_name)?;
             writeln!(writer, "    /\\ currentState = {}", transition.from_state)?;
             writeln!(writer, "    /\\ eventQueue # <<>> ")?;
             writeln!(writer, "    /\\ Head(eventQueue) = {}", transition.event)?;
@@ -186,7 +192,12 @@ fn generate_region_transition_actions<W: Write>(
             }
             
             // Generate state change and effects
-            writeln!(writer, "    /\\ currentState' = {}", transition.to_state)?;
+            if transition.to_state == "[*]" {
+                // Transition to final state - use a special final state constant
+                writeln!(writer, "    /\\ currentState' = \"FINAL\"")?;
+            } else {
+                writeln!(writer, "    /\\ currentState' = {}", transition.to_state)?;
+            }
             writeln!(writer, "    /\\ eventQueue' = Tail(eventQueue)")?;
             writeln!(writer, "    /\\ inTransition' = TRUE")?;
             
@@ -217,13 +228,14 @@ fn generate_next_relation<W: Write>(writer: &mut W, state_machine: &StateMachine
             let state_borrow = state.borrow();
             
             for transition in state_borrow.transitions.values() {
+                let from_name = if transition.from_state == "[*]" { "Initial" } else { &transition.from_state };
+                let to_name = if transition.to_state == "[*]" { "Final" } else { &transition.to_state };
+                
                 if first {
-                    writeln!(writer, "    \\/ Transition_{}_{}", 
-                             transition.from_state, transition.to_state)?;
+                    writeln!(writer, "    \\/ Transition_{}_{}", from_name, to_name)?;
                     first = false;
                 } else {
-                    writeln!(writer, "    \\/ Transition_{}_{}", 
-                             transition.from_state, transition.to_state)?;
+                    writeln!(writer, "    \\/ Transition_{}_{}", from_name, to_name)?;
                 }
             }
         }

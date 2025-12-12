@@ -1,0 +1,8 @@
+@startuml SimpleFSM
+[*] --> Idle
+Idle --> Processing : Start
+Processing --> Completed : Finish
+Processing --> Error : Failure
+Error --> Idle : Retry
+Completed --> [*]
+@enduml

@@ -27,7 +27,7 @@ pub fn parse_plantuml(input: &str) -> Result<StateMachine> {
 fn plantuml_document(input: &str) -> IResult<&str, StateMachine> {
     let (input, _) = multispace0(input)?;
     let (input, _) = tag("@startuml")(input)?;
-    let (input, _) = opt(preceded(space1, take_until("\n")))(input)?; // optional title
+    let (input, title) = opt(preceded(space1, take_until("\n")))(input)?; // optional title
     let (input, _) = line_ending(input)?;
     
     let (input, elements) = many0(preceded(multispace0, plantuml_element))(input)?;
@@ -35,21 +35,12 @@ fn plantuml_document(input: &str) -> IResult<&str, StateMachine> {
     let (input, _) = multispace0(input)?;
     let (input, _) = tag("@enduml")(input)?;
     
-    // Build state machine from parsed elements
-    let builder = StateMachineBuilder::new("parsed_machine".to_string());
-    let current_region = "main_region".to_string();
+    // Build state machine from parsed elements using new approach
+    let machine_id = title.unwrap_or("parsed_machine").trim().to_string();
+    let state_machine = build_state_machine_from_elements(machine_id, elements)
+        .map_err(|_e| nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Fail)))?;
     
-    // Add main region
-    let region_builder = builder.add_region(current_region.clone());
-    let mut sm_builder = region_builder.finish_region();
-    
-    // Process elements and build state machine
-    for element in elements {
-        sm_builder = process_element(sm_builder, element)
-            .map_err(|_e| nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Fail)))?;
-    }
-    
-    Ok((input, sm_builder.build()))
+    Ok((input, state_machine))
 }
 
 /// Parse a single PlantUML element
@@ -356,71 +347,145 @@ pub fn effect_spec(input: &str) -> IResult<&str, Effect> {
     Ok((remaining, actions))
 }
 
-/// Process a parsed element and add it to the state machine builder
-fn process_element(
-    mut builder: StateMachineBuilder,
-    element: PlantUMLElement,
-) -> Result<StateMachineBuilder> {
-    match element {
-        PlantUMLElement::StateDefinition(state_def) => {
-            // Add state to main region
-            let region_builder = builder.add_region("main_region".to_string());
-            let state_builder = region_builder.add_state(state_def.id.clone());
-            
-            // Process substates if any
-            let mut state_builder = state_builder;
-            if !state_def.substates.is_empty() {
-                let subregion_builder = state_builder.add_subregion(format!("{}_region", state_def.id));
-                let subregion_builder = subregion_builder;
-                
-                for _substate_element in state_def.substates {
-                    // Process substate elements recursively
-                    // This is simplified - in a full implementation, we'd need more complex handling
-                }
-                
-                state_builder = subregion_builder.finish_subregion();
+/// Intermediate structure to collect parsed elements before building state machine
+#[derive(Debug, Default)]
+struct ParsedStateMachine {
+    states: Vec<StateDefinition>,
+    transitions: Vec<TransitionDefinition>,
+    activities: Vec<ActivityDefinition>,
+    configs: Vec<ConfigDefinition>,
+}
+
+/// Process all parsed elements and build a complete state machine
+fn build_state_machine_from_elements(
+    machine_id: String,
+    elements: Vec<PlantUMLElement>,
+) -> Result<StateMachine> {
+    // First pass: collect all elements by type
+    let mut parsed = ParsedStateMachine::default();
+    
+    for element in elements {
+        match element {
+            PlantUMLElement::StateDefinition(state_def) => {
+                parsed.states.push(state_def);
             }
-            
-            let region_builder = state_builder.finish_state();
-            builder = region_builder.finish_region();
-        }
-        PlantUMLElement::Transition(trans_def) => {
-            // Create transition
-            let _transition = Transition::new(
-                format!("t_{}_to_{}", trans_def.from_state, trans_def.to_state),
-                trans_def.from_state,
-                trans_def.to_state,
-                trans_def.event.unwrap_or_else(|| "NullEvent".to_string()),
-            )
-            .with_guard(trans_def.guard)
-            .with_effect(trans_def.effect);
-            
-            // Add transition to appropriate state
-            // This is simplified - we'd need to find the correct region and state
-        }
-        PlantUMLElement::Activity(activity_def) => {
-            // Create activity
-            let _activity = Activity::new(
-                format!("a_{}_{}", activity_def.state, activity_def.activity_type),
-                activity_def.state,
-                activity_def.activity_type,
-                activity_def.args,
-            );
-            
-            // Add activity to appropriate state
-            // This is simplified - we'd need to find the correct state
-        }
-        PlantUMLElement::Config(_config_def) => {
-            // Add configuration to appropriate state
-            // This is simplified - we'd need to find the correct state
-        }
-        _ => {
-            // Ignore other elements for now
+            PlantUMLElement::Transition(trans_def) => {
+                parsed.transitions.push(trans_def);
+            }
+            PlantUMLElement::Activity(activity_def) => {
+                parsed.activities.push(activity_def);
+            }
+            PlantUMLElement::Config(config_def) => {
+                parsed.configs.push(config_def);
+            }
+            _ => {
+                // Ignore comments, notes, etc. for now
+            }
         }
     }
     
-    Ok(builder)
+    // Optional debug output (only in debug builds)
+    #[cfg(debug_assertions)]
+    if std::env::var("UPML_DEBUG").is_ok() {
+        eprintln!("DEBUG: Found {} states, {} transitions, {} activities", 
+                  parsed.states.len(), parsed.transitions.len(), parsed.activities.len());
+        for trans in &parsed.transitions {
+            eprintln!("DEBUG: Transition: {} -> {}", trans.from_state, trans.to_state);
+        }
+        for activity in &parsed.activities {
+            eprintln!("DEBUG: Activity: {}: {}: {:?}", activity.state, activity.activity_type, activity.args);
+        }
+    }
+    
+    // Collect all state names from transitions (implicit state definitions)
+    let mut all_state_names = std::collections::HashSet::new();
+    for trans in &parsed.transitions {
+        if trans.from_state != "[*]" {
+            all_state_names.insert(trans.from_state.clone());
+        }
+        if trans.to_state != "[*]" {
+            all_state_names.insert(trans.to_state.clone());
+        }
+    }
+    
+    // Add explicit state definitions
+    for state_def in &parsed.states {
+        all_state_names.insert(state_def.id.clone());
+    }
+    
+    #[cfg(debug_assertions)]
+    if std::env::var("UPML_DEBUG").is_ok() {
+        eprintln!("DEBUG: All states: {:?}", all_state_names);
+    }
+    
+    // Second pass: build the state machine
+    let builder = StateMachineBuilder::new(machine_id);
+    let region_builder = builder.add_region("main_region".to_string());
+    
+    // Add all states first (both explicit and implicit)
+    let mut region_builder = region_builder;
+    
+    // Add implicit states from transitions
+    for state_name in &all_state_names {
+        let state_builder = region_builder.add_state(state_name.clone());
+        
+        // Check if this is an initial state (has transition from [*])
+        let is_initial = parsed.transitions.iter().any(|t| t.from_state == "[*]" && t.to_state == *state_name);
+        let state_builder = if is_initial {
+            state_builder.initial()
+        } else {
+            state_builder
+        };
+        
+        // Check if this is a final state (has transition to [*])
+        let is_final = parsed.transitions.iter().any(|t| t.from_state == *state_name && t.to_state == "[*]");
+        let state_builder = if is_final {
+            state_builder.final_state()
+        } else {
+            state_builder
+        };
+        
+        // Add activities for this state
+        let mut state_builder = state_builder;
+        for activity_def in &parsed.activities {
+            if activity_def.state == *state_name {
+                let activity = Activity::new(
+                    format!("a_{}_{}", activity_def.state, activity_def.activity_type),
+                    activity_def.state.clone(),
+                    activity_def.activity_type.clone(),
+                    activity_def.args.clone(),
+                );
+                state_builder = state_builder.add_activity(activity);
+            }
+        }
+        
+        // Add transitions from this state
+        for trans_def in &parsed.transitions {
+            if trans_def.from_state == *state_name {
+                let transition = Transition::new(
+                    format!("t_{}_to_{}", trans_def.from_state, trans_def.to_state),
+                    trans_def.from_state.clone(),
+                    trans_def.to_state.clone(),
+                    trans_def.event.clone().unwrap_or_else(|| "NullEvent".to_string()),
+                )
+                .with_guard(trans_def.guard.clone())
+                .with_effect(trans_def.effect.clone());
+                
+                state_builder = state_builder.add_transition(transition);
+            }
+        }
+        
+        region_builder = state_builder.finish_state();
+    }
+    
+    // Note: Explicit states are already handled above in the all_state_names loop
+    // No need to process them again
+    
+    let builder = region_builder.finish_region();
+    Ok(builder.build())
 }
+
+
 
 #[cfg(test)]
 mod tests {

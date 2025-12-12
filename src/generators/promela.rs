@@ -125,6 +125,7 @@ fn generate_hierarchical_state_enum<W: Write>(writer: &mut W, state_machine: &St
 fn generate_global_variables<W: Write>(writer: &mut W, _state_machine: &StateMachine) -> Result<()> {
     writeln!(writer, "/* Global variables */")?;
     writeln!(writer, "mtype currentState;")?;
+    writeln!(writer, "mtype event;")?;
     writeln!(writer, "chan eventQueue = [16] of {{ mtype }};")?;
     writeln!(writer, "bool inTransition = false;")?;
     
@@ -137,6 +138,7 @@ fn generate_global_variables<W: Write>(writer: &mut W, _state_machine: &StateMac
 fn generate_hsm_global_variables<W: Write>(writer: &mut W, state_machine: &StateMachine) -> Result<()> {
     writeln!(writer, "/* HSM Global variables */")?;
     writeln!(writer, "mtype currentState;")?;
+    writeln!(writer, "mtype event;")?;
     writeln!(writer, "mtype stateStack[{}];", state_machine.depth())?;
     writeln!(writer, "byte stackDepth = 0;")?;
     writeln!(writer, "chan eventQueue = [16] of {{ mtype }};")?;
@@ -169,6 +171,9 @@ fn generate_main_process<W: Write>(writer: &mut W, state_machine: &StateMachine)
     writeln!(writer, "            inTransition = false;")?;
     writeln!(writer, "        }}")?;
     writeln!(writer, "    od")?;
+    writeln!(writer, "    ")?;
+    writeln!(writer, "end_state:")?;
+    writeln!(writer, "    /* Final state reached - process terminates */")?;
     writeln!(writer, "}}")?;
     
     Ok(())
@@ -253,7 +258,12 @@ fn generate_region_transitions<W: Write>(
             }
             
             // Change state
-            writeln!(writer, "                    currentState = state_{};", transition.to_state)?;
+            if transition.to_state == "[*]" {
+                // Transition to final state - terminate the process
+                writeln!(writer, "                    goto end_state;")?;
+            } else {
+                writeln!(writer, "                    currentState = state_{};", transition.to_state)?;
+            }
             
             if !transition.guard.is_empty() {
                 writeln!(writer, "                :: else -> skip")?;

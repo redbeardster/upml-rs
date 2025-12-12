@@ -1,0 +1,13 @@
+@startuml ActivityTest
+[*] --> Idle
+Idle --> Processing : Start [ready] / initialize() \; start_timer() \;
+Processing --> Completed : Finish / cleanup() \; stop_timer() \;
+Processing --> Error : Failure [error_count < 3] / log_error() \;
+Error --> Idle : Retry / reset_state() \;
+Completed --> [*]
+
+Idle: entry: setup_resources() \;
+Processing: entry: begin_work() \;
+Processing: exit: save_progress() \;
+Error: entry: handle_error() \;
+@enduml
