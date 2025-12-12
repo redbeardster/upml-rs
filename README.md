@@ -4,12 +4,22 @@ A Rust port of the original C++ upml tool for converting UML state machines (des
 
 ## Features
 
-- **PlantUML Parser**: Parse UML state machine diagrams from PlantUML syntax
+- **PlantUML Parser**: Parse UML state machine diagrams from PlantUML syntax with support for:
+  - Composite states and hierarchical state machines
+  - Parallel regions and concurrent states
+  - Guards, effects, and state activities
+  - Complex transition syntax
 - **Multiple Verification Backends**:
   - **Promela/SPIN**: Generate Promela models for SPIN model checker (FSM & HSM)
   - **TLA+/PlusCal**: Generate TLA+/PlusCal models for formal verification
-  - **NuSMV**: Generate symbolic models for NuSMV model checker
+  - **NuSMV**: Generate symbolic models with CTL/LTL properties and fairness constraints
+  - **Alloy**: Generate structural verification models with automatic assertions
 - **Comprehensive Analysis**: Built-in validation, complexity metrics, and reachability analysis
+- **Automated Verification**: Integrated verification runner that automatically:
+  - Detects available verification tools (SPIN, TLA+, NuSMV, Alloy)
+  - Generates appropriate models for each tool
+  - Runs verification in parallel with optimal configurations
+  - Provides unified reporting and counterexample extraction
 - **Modern Rust**: Memory-safe implementation with excellent error handling
 - **Fast Parsing**: Uses nom parser combinator library for efficient parsing
 
@@ -52,12 +62,39 @@ upml --input state_machine.plantuml --output model.tla --backend tla-fsm
 - `spin-fsm`: Generate Promela FSM model for SPIN
 - `spin-hsm`: Generate Promela HSM model for SPIN  
 - `tla-fsm`: Generate TLA+/PlusCal model
-- `nu-smv`: Generate NuSMV symbolic model with fairness constraints
-- `alloy`: Generate Alloy structural verification model
+- `nu-smv`: Generate NuSMV symbolic model with CTL/LTL properties and fairness constraints
+- `alloy`: Generate Alloy structural verification model with automatic assertions
 - `analyze`: Comprehensive state machine analysis and validation
-- `spin-fsm`: Generate Promela FSM model for SPIN
-- `spin-hsm`: Generate Promela HSM model for SPIN
-- `tla-fsm`: Generate TLA+/PlusCal FSM model
+- `verify`: **Automated verification** - detects available tools and runs verification automatically
+
+### Automated Verification
+
+The `verify` backend provides integrated verification across multiple tools:
+
+```bash
+# Automatic verification with all available tools
+upml --input state_machine.plantuml --backend verify
+
+# This will:
+# 1. Detect available verification tools (SPIN, TLA+, NuSMV, Alloy)
+# 2. Generate appropriate models for each tool
+# 3. Run verification in parallel with optimal configurations
+# 4. Provide unified reporting with counterexamples
+# 5. Save detailed results to JSON file
+```
+
+**Supported Verification Tools:**
+- **SPIN**: Model checking with Promela models
+- **TLA+**: Temporal logic verification with TLC
+- **NuSMV**: Symbolic model checking with CTL/LTL
+- **Alloy**: Structural verification and constraint solving
+
+**Features:**
+- Automatic tool detection and configuration
+- Parallel execution with timeout handling
+- Optimal parameter selection based on model complexity
+- Unified result reporting and counterexample extraction
+- JSON export for integration with other tools
 
 ### Example
 

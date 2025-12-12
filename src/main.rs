@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 
-use upml_rs::{parse_plantuml, generators, analysis, Result};
+use upml_rs::{parse_plantuml, generators, analysis, verification, Result};
 
 #[derive(Debug, Clone, ValueEnum)]
 enum Backend {
@@ -14,6 +14,7 @@ enum Backend {
     NuSmv,
     Alloy,
     Analyze,
+    Verify,
 }
 
 #[derive(Parser)]
@@ -98,6 +99,9 @@ fn main() -> Result<()> {
         }
         Backend::Analyze => {
             analyze_state_machine(&state_machine)?;
+        }
+        Backend::Verify => {
+            run_verification(&state_machine, &args)?;
         }
     }
 
@@ -248,4 +252,87 @@ fn calculate_quality_score(validation_report: &analysis::ValidationReport, compl
     }
     
     score.max(0.0).min(10.0)
+}
+
+fn run_verification(state_machine: &upml_rs::StateMachine, args: &Args) -> Result<()> {
+    use verification::{VerificationRunner, VerificationTool, RunConfig};
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    println!("🚀 Automated Verification");
+    println!("=========================\n");
+
+    // Detect available tools
+    let available_tools = VerificationRunner::detect_available_tools();
+    println!("🔍 Detected verification tools:");
+    for tool in &available_tools {
+        println!("  ✅ {}", tool.display_name());
+    }
+    
+    if available_tools.is_empty() {
+        println!("❌ No verification tools found!");
+        println!("   Please install one or more of: SPIN, TLA+, NuSMV, Alloy");
+        return Ok(());
+    }
+    println!();
+
+    // Generate models for all available tools
+    println!("📄 Generating verification models...");
+    let mut model_files = HashMap::new();
+    let base_name = args.input
+        .as_ref()
+        .and_then(|p| p.file_stem())
+        .and_then(|s| s.to_str())
+        .unwrap_or("model");
+
+    for tool in &available_tools {
+        let filename = format!("{}_{}.{}", base_name, tool.executable(), tool.file_extension());
+        let path = PathBuf::from(&filename);
+        
+        let mut file = std::fs::File::create(&path)?;
+        
+        match tool {
+            VerificationTool::Spin => {
+                generators::promela::generate_fsm(&mut file, state_machine)?;
+            }
+            VerificationTool::TlaPlus => {
+                generators::tla::generate_fsm(&mut file, state_machine)?;
+            }
+            VerificationTool::NuSMV => {
+                generators::nusmv::generate_model(&mut file, state_machine)?;
+            }
+            VerificationTool::Alloy => {
+                generators::alloy::generate_model(&mut file, state_machine)?;
+            }
+        }
+        
+        model_files.insert(tool.clone(), path.clone());
+        println!("  ✅ Generated {}", filename);
+    }
+    println!();
+
+    // Configure verification runner
+    let config = RunConfig {
+        timeout: Some(300), // 5 minutes per tool
+        work_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+        parallel: true,
+        keep_files: true, // Keep generated files for inspection
+        tool_args: HashMap::new(),
+    };
+
+    // Run verification
+    println!("🔧 Running verification tools...");
+    let runner = VerificationRunner::new(config);
+    let results = runner.run_all(&model_files)?;
+
+    // Display results
+    results.print_report();
+
+    // Save results to JSON
+    let json_results = results.to_json()?;
+    let results_file = format!("{}_verification_results.json", base_name);
+    std::fs::write(&results_file, json_results)?;
+    println!("\n💾 Detailed results saved to: {}", results_file);
+
+    Ok(())
 }

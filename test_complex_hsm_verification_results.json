@@ -1,0 +1,21 @@
+{
+  "overall_status": "Success",
+  "tool_results": {
+    "Alloy": {
+      "tool": "Alloy",
+      "status": "Success",
+      "execution_time": {
+        "secs": 1,
+        "nanos": 5285656
+      },
+      "stdout": "",
+      "stderr": "00. run   WellFormed               0\b\b\b\b\b    1/1     SAT\n01. run   run$2                    0\b\b\b\b\b    1/1     SAT\n02. check WellFormedImpliesDeterministic     0\b\b\b\b\b    1/1     SAT\n03. check DeterministicImpliesDeadlockFree     0       UNSAT\n04. check LivenessHolds            0\b\b\b\b\b    1/1     SAT\n",
+      "exit_code": 0
+    }
+  },
+  "total_time": {
+    "secs": 1,
+    "nanos": 5467297
+  },
+  "summary": "Verification completed: 1 tools run, 1 successful, 0 failed, 0 errors"
+}

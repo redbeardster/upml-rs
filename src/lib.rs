@@ -8,6 +8,7 @@ pub mod ast;
 pub mod parser;
 pub mod state_machine;
 pub mod generators;
+pub mod verification;
 
 pub use state_machine::StateMachine;
 pub use parser::plantuml::parse_plantuml;
