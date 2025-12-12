@@ -11,6 +11,8 @@ enum Backend {
     SpinFsm,
     SpinHsm,
     TlaFsm,
+    NuSmv,
+    Alloy,
     Analyze,
 }
 
@@ -85,6 +87,14 @@ fn main() -> Result<()> {
         }
         Backend::TlaFsm => {
             generators::tla::generate_fsm(output, &state_machine)?;
+        }
+        Backend::NuSmv => {
+            // For now, use default configuration
+            // TODO: Add CLI options for custom properties and fairness
+            generators::nusmv::generate_model(output, &state_machine)?;
+        }
+        Backend::Alloy => {
+            generators::alloy::generate_model(output, &state_machine)?;
         }
         Backend::Analyze => {
             analyze_state_machine(&state_machine)?;

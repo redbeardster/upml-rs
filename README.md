@@ -5,10 +5,11 @@ A Rust port of the original C++ upml tool for converting UML state machines (des
 ## Features
 
 - **PlantUML Parser**: Parse UML state machine diagrams from PlantUML syntax
-- **Promela Generation**: Generate Promela models for SPIN model checker
-  - Finite State Machine (FSM) models
-  - Hierarchical State Machine (HSM) models
-- **TLA+ Generation**: Generate TLA+/PlusCal models for formal verification
+- **Multiple Verification Backends**:
+  - **Promela/SPIN**: Generate Promela models for SPIN model checker (FSM & HSM)
+  - **TLA+/PlusCal**: Generate TLA+/PlusCal models for formal verification
+  - **NuSMV**: Generate symbolic models for NuSMV model checker
+- **Comprehensive Analysis**: Built-in validation, complexity metrics, and reachability analysis
 - **Modern Rust**: Memory-safe implementation with excellent error handling
 - **Fast Parsing**: Uses nom parser combinator library for efficient parsing
 
@@ -48,6 +49,12 @@ upml --input state_machine.plantuml --output model.tla --backend tla-fsm
 ### Backend Options
 
 - `none`: Just parse and validate (no output generation)
+- `spin-fsm`: Generate Promela FSM model for SPIN
+- `spin-hsm`: Generate Promela HSM model for SPIN  
+- `tla-fsm`: Generate TLA+/PlusCal model
+- `nu-smv`: Generate NuSMV symbolic model with fairness constraints
+- `alloy`: Generate Alloy structural verification model
+- `analyze`: Comprehensive state machine analysis and validation
 - `spin-fsm`: Generate Promela FSM model for SPIN
 - `spin-hsm`: Generate Promela HSM model for SPIN
 - `tla-fsm`: Generate TLA+/PlusCal FSM model

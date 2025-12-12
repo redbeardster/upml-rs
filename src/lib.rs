@@ -11,7 +11,7 @@ pub mod generators;
 
 pub use state_machine::StateMachine;
 pub use parser::plantuml::parse_plantuml;
-pub use generators::{promela, tla};
+pub use generators::{promela, tla, nusmv, alloy};
 
 /// Main result type used throughout the library
 pub type Result<T> = anyhow::Result<T>;
