@@ -1,0 +1,5 @@
+@startuml SimpleTest
+[*] --> State1
+State1 --> State2 : Event1
+State2 --> [*]
+@enduml

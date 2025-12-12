@@ -1,0 +1,7 @@
+@startuml TestMachine
+[*] --> State1
+State1 --> State2 : Event1 [x > 0] / action1() \; action2() \;
+State2 --> [*] : Event2 / cleanup() \;
+State1: entry: initialize() \; setup() \;
+State2: exit: finalize() \;
+@enduml

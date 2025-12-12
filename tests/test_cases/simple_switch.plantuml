@@ -1,0 +1,6 @@
+@startuml Switch
+[*] --> Off
+Off --> On : Press [switch_available] / turn_on_light();
+On --> Off : Press / turn_off_light();
+On --> [*]
+@enduml

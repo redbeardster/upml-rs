@@ -1,0 +1,18 @@
+@startuml ConcurrentMachine
+state ConcurrentSystem {
+    [*] --> Active
+    
+    state Active {
+        --
+        [*] --> ProcessingA
+        ProcessingA --> WaitingA : EventA
+        WaitingA --> ProcessingA : ResumeA
+        --
+        [*] --> ProcessingB  
+        ProcessingB --> WaitingB : EventB
+        WaitingB --> ProcessingB : ResumeB
+    }
+    
+    Active --> [*] : Shutdown
+}
+@enduml

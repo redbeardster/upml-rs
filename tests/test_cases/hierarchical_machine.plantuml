@@ -1,0 +1,16 @@
+@startuml HierarchicalMachine
+state Operation {
+    [*] --> Launch
+    Launch --> Monitor : EvtLaunch [guard_condition] / effect1 \; effect2 \;
+    Monitor --> [*]
+    
+    state SubOperation {
+        [*] --> SubLaunch
+        SubLaunch --> SubMonitor : EvtSubLaunch
+        SubLaunch: entry: send event:INVITE to state:Bob;
+        SubLaunch: exit: trace exit action;
+        SubMonitor --> [*]
+    }
+}
+Operation --> [*]
+@enduml

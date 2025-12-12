@@ -1,0 +1,51 @@
+[package]
+name = "upml-rs"
+version = "0.10.0"
+edition = "2021"
+authors = ["Rust Port"]
+description = "Formal verification of UML state machines with Promela and TLA+/PlusCal"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/your-repo/upml-rs"
+
+[[bin]]
+name = "upml"
+path = "src/main.rs"
+
+[[bench]]
+name = "performance_benchmarks"
+harness = false
+
+[dependencies]
+# Command line argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Parsing
+nom = "7.1"
+pest = "2.7"
+pest_derive = "2.7"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization (for debugging/output)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# String handling
+regex = "1.10"
+
+# File I/O (using std::path instead)
+
+[dev-dependencies]
+# Testing
+assert_matches = "1.5"
+pretty_assertions = "1.4"
+
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

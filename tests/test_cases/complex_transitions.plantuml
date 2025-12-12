@@ -1,0 +1,20 @@
+@startuml ComplexTransitions
+state Machine {
+    [*] --> Idle
+    
+    Idle --> Processing : Start [resource_available && !busy] / allocate_resource() \; set_busy_flag() \;
+    Processing --> Idle : Complete / release_resource() \; clear_busy_flag() \;
+    Processing --> Error : Failure [error_count < 3] / increment_error_count() \; log_error() \;
+    Error --> Processing : Retry [error_count < 3] / reset_state() \;
+    Error --> Failed : Retry [error_count >= 3] / cleanup() \; notify_admin() \;
+    
+    Idle: entry: initialize_system();
+    Idle: exit: cleanup_idle_state();
+    Processing: entry: start_processing();
+    Processing: exit: stop_processing();
+    Error: entry: handle_error();
+    
+    Idle: config: progressTag;
+    Processing: config: noInboundEvents;
+}
+@enduml
